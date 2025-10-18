@@ -1,10 +1,8 @@
 if __name__ == "__main__":
     from ultralytics import YOLO
 
-    # Załaduj model YOLO11n
     model = YOLO("yolo11n.pt")
 
-    # Trening modelu
     model.train(
         data="../data/data.yaml",
         epochs=100,
