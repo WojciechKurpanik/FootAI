@@ -3,7 +3,7 @@ import supervision as sv
 import cv2
 import os
 
-MODEL_PATH = "scripts/models/FootAI_yolo11/weights/best.pt"
+MODEL_PATH = "scripts/models/FootAI_yolo11l/weights/best.pt"
 VIDEO_PATH = r"C:\Users\Windows 10\Downloads\DFL Bundesliga Data Shootout\test\test (23).mp4"
 OUTPUT_PATH = "outputs/tracked_match_shapes_yolo.mp4"
 CONF_THRESH = 0.35

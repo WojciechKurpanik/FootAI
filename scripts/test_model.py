@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import cv2
 import os
 
-model = YOLO("models/FootAI_yolo11/weights/best.pt")
+model = YOLO("models/FootAI_yolo11l/weights/best.pt")
 test_dir = "../data/test/images/"
 out_dir = "../outputs/detections/"
 os.makedirs(out_dir, exist_ok=True)
