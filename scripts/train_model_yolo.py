@@ -1,6 +1,6 @@
-if __name__ == "__main__":
-    from ultralytics import YOLO
+from ultralytics import YOLO
 
+def train():
     model = YOLO("yolo11l.pt")
 
     model.train(
@@ -8,9 +8,9 @@ if __name__ == "__main__":
         epochs=150,
         imgsz=960,
         batch=8,
-        device=0,
+        device="mps",
         workers=0,
-        #patience=10,
+        patience=50,
         name="FootAI_yolo11l",
         project="models",
         pretrained=True
