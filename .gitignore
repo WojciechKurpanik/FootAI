@@ -208,7 +208,5 @@ __marimo__/
 
 
 #exclude folders
-output/
+outputs/
 logs/
-
-*.pt
