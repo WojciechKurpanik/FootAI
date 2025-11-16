@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AgentMigrationStateService">
+    <option name="migrationStatus" value="IN_PROGRESS" />
+    <option name="pendingSessionIds">
+      <option value="58b14384-544a-4652-b393-23e291925eb1" />
+      <option value="9c9a9aab-0693-41f4-a5c1-f9ece6ed002a" />
+    </option>
+    <option name="pendingTurns">
+      <map>
+        <entry key="58b14384-544a-4652-b393-23e291925eb1">
+          <value>
+            <set>
+              <option value="0b4652c5-f40a-4a65-8278-e881a5e2ce9a" />
+              <option value="40a76e97-4d03-4871-bda2-fdc13ac83eac" />
+              <option value="5b869743-2684-44e7-a0fd-d786e4cec8f4" />
+              <option value="755c3fd2-3ea9-4156-bbda-19c070d5ced4" />
+              <option value="793e2718-5ef8-4bd1-abda-69431913d570" />
+              <option value="7bc8f087-fb94-4d4d-98d7-54bc22085ef3" />
+              <option value="cc90a962-bda3-463b-ae7b-10e2bae0fa6a" />
+              <option value="d42ed874-f6ce-49e8-86a3-a110d7831347" />
+              <option value="e017f951-4e7a-4c1a-bd81-369a888956e5" />
+              <option value="e63a55e2-122a-400d-b744-31daa1c35b7b" />
+            </set>
+          </value>
+        </entry>
+        <entry key="9c9a9aab-0693-41f4-a5c1-f9ece6ed002a">
+          <value>
+            <set>
+              <option value="1db6f359-ba53-4f67-8613-a62c702a3cab" />
+              <option value="2ac7fa33-4811-4578-beac-0a77e9e30bc4" />
+            </set>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <pendingWorkingSetItems>
+      <entry key="58b14384-544a-4652-b393-23e291925eb1" />
+      <entry key="9c9a9aab-0693-41f4-a5c1-f9ece6ed002a">
+        <set>
+          <option value="file://$PROJECT_DIR$/FootAI Main.py" />
+        </set>
+      </entry>
+    </pendingWorkingSetItems>
+  </component>
+</project>
