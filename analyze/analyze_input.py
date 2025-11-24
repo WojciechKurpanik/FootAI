@@ -12,6 +12,12 @@ from tracking.FastTeamAssigner import FastTeamAssigner
 from tracking.HeuristicTeamAssigner import HeuristicTeamAssigner
 from tracking.EmbeddingTeamAssigner import EmbeddingTeamAssigner
 
+# detectron2
+import torch
+from detectron2.config import get_cfg
+from detectron2.engine import DefaultPredictor
+from detectron2 import model_zoo
+
 class Analyze:
     def __init__(self, config_path: str):
         with open(config_path, "r") as f:
@@ -21,6 +27,12 @@ class Analyze:
         self.confidence = self.config.get("confidence", 0.45)
         self.output_path = self.config["output_path"]
         self.tracker_config = self.config.get("tracker_config", "bytetrack.yaml")
+
+        #Config dla RetinaNet - detekcja piłki
+        self.retina_weights = self.config.get("retina_weights", "scripts/models/RetinaNet/model_best.pth")
+        self.retina_conf_thresh = self.config.get("retina_conf_thresh", 0.35)
+        self.retina_min_size = self.config.get("retina_min_size", 1080)
+        self.retina_max_size = self.config.get("retina_max_size", 1920)
 
         # Inicjalizacja modelu YOLO
         self.model = YOLO(self.model_path)
@@ -36,6 +48,57 @@ class Analyze:
 
         self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
 
+        #Prediktor RetinaNet
+        try:
+            cfg = get_cfg()
+            cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/retinanet_R_50_FPN_3x.yaml"))
+            cfg.MODEL.RETINANET.NUM_CLASSES = 1
+            cfg.MODEL.DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+            cfg.MODEL.WEIGHTS = self.retina_weights
+            cfg.MODEL.RETINANET.SCORE_THRESH_TEST = self.retina_conf_thresh
+
+            cfg.TEST.DETECTIONS_PER_IMAGE = 5
+            cfg.INPUT.MIN_SIZE_TEST = self.retina_min_size
+            cfg.INPUT.MAX_SIZE_TEST = self.retina_max_size
+            # domyślne anchor'y można nadpisać w configie
+            cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[6, 8, 10, 12, 16, 20, 24]]
+            cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [[0.5, 0.7, 1.0, 1.5]]
+
+            self.predictor_retina = DefaultPredictor(cfg)
+        except Exception as e:
+            logger.warning(f"RetinaNet initialization failed: {e}")
+            self.predictor_retina = None
+
+        # dodatkowy annotator dla predykcji RetinaNet (piłka) - pomarańczowy
+        self.triangle_annotator_ball_retina = sv.TriangleAnnotator(color=sv.Color.from_hex("#FFA500"))
+
+        self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
+
+    def _predict_ball_with_retina(self, frame, class_names):
+        if self.predictor_retina is None:
+            return None
+
+        outputs = self.predictor_retina(frame)
+        instances = outputs["instances"].to("cpu")
+        pred_boxes = instances.pred_boxes.tensor.numpy()
+        scores = instances.scores.numpy()
+        pred_classes = instances.pred_classes.numpy()
+
+        ball_detections = []
+        for box, score, cls in zip(pred_boxes, scores, pred_classes):
+            if score >= self.retina_conf_thresh and class_names[cls] == "ball":
+                ball_detections.append(box)
+
+        if len(ball_detections) == 0:
+            return None
+
+        ball_detections = np.array(ball_detections)
+        detections = sv.Detections(
+            xyxy=ball_detections,
+            class_id=np.zeros(len(ball_detections), dtype=int),
+            confidence=scores[:len(ball_detections)]
+        )
+        return detections
     # def run(self, video_path: str):  #In2Teams - KMeans przydzielanie druyn
     #     self.video_path = video_path
     #
@@ -365,6 +428,10 @@ class Analyze:
                     frame = self.triangle_annotators[class_names[cls]].annotate(
                         frame, detections_triangle[mask_cls]
                     )
+            #Piłka z modelem Retina
+            detections_retina = self._predict_ball_with_retina(frame, class_names)
+            if detections_retina is not None and len(detections_retina) > 0:
+                frame = self.triangle_annotator_ball_retina.annotate(frame, detections_retina)
 
             out.write(frame)
 
