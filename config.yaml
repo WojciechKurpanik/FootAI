@@ -1,4 +1,5 @@
 output_path: "outputs/"
 model_path: "scripts/models/FootAI_yolo11x/weights/best.pt"
+keypoint_model_path: "scripts/models/Keypoints_yolo11x/weights/best.pt"
 tracker_config: "bytetrack.yaml"
 confidence: 0.45 #0.45 yolo best performance model v11x

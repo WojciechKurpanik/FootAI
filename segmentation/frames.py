@@ -2,7 +2,6 @@ import cv2
 from logger.logger import logger
 
 class Frames:
-
     def __init__(self, source_path: str):
         self.cap = cv2.VideoCapture(source_path)
         if not self.cap.isOpened():
