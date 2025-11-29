@@ -14,7 +14,7 @@ class EmbeddingTeamAssigner:
     - Wykorzystuje historię dla stabilizacji przypisania
     """
 
-    def __init__(self, device='mps', max_history=5):
+    def __init__(self, device='cuda', max_history=5):
         self.device = device if torch.cuda.is_available() else 'cpu'
         self.max_history = max_history
         self.team_centroids = {1: None, 2: None}  # centroid embeddings drużyn

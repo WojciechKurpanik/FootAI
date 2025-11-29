@@ -14,5 +14,5 @@ class Tracker:
             stream=True,
             persist=True,
             show=False,
-            iou=0.45 #best 0.5
+            iou=0.5 #best 0.5
         )
