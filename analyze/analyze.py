@@ -237,18 +237,11 @@ class Analyze:
 
             out.write(frame)
 
-            if frame_idx == 50:
-                break
-
-            print("frame: ", frame_idx)
-
         # --- Koniec pętli: zapis wideo i heatmap ---
         frames.release()
         out.release()
         cv2.destroyAllWindows()
         logger.info(f"Result saved in: {self.output_path}_analyzed_embeddings.mp4")
-
-        # --- Zapis obu heatmap ---
         heatmap_gen_team0.save_heatmap_on_pitch(team_id=0, output_dir="outputs")
         heatmap_gen_team1.save_heatmap_on_pitch(team_id=1, output_dir="outputs")
         logger.info("Saved heatmaps for both teams.")
