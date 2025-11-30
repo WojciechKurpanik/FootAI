@@ -1,4 +1,4 @@
-from analyze.analyze_input import Analyze
+from analyze.analyze_copy import Analyze
 
 def main():
     analyze = Analyze("config.yaml")
