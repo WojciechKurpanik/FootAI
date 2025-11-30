@@ -49,7 +49,7 @@ class Analyze:
             "ball": sv.TriangleAnnotator(color=sv.Color.from_hex("#FFFF00")),
         }
 
-        self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
+        # self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
 
         # Prediktor RetinaNet
         try:
@@ -74,7 +74,7 @@ class Analyze:
         # dodatkowy annotator dla predykcji RetinaNet (piłka) - pomarańczowy
         self.triangle_annotator_ball_retina = sv.TriangleAnnotator(color=sv.Color.from_hex("#FFA500"))
 
-        self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
+        # self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
 
     def _predict_ball_with_retina(self, frame, class_names):
         if self.predictor_retina is None:
@@ -121,7 +121,7 @@ class Analyze:
 
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         out = cv2.VideoWriter(
-            self.output_path + "_analyzed_embeddings.mp4",
+            self.output_path + "_analyzed_embeddings_no_labels.mp4",
             cv2.VideoWriter_fourcc(*"mp4v"),
             frames.fps,
             (frames.width, frames.height),
@@ -170,9 +170,9 @@ class Analyze:
                 ellipse_annotator = sv.EllipseAnnotator(color=color, thickness=2)
                 frame = ellipse_annotator.annotate(frame, detections_for_player)
 
-                label_text = f"Player {player_id} | Team {team_id}"
+                # label_text = f"Player {player_id} | Team {team_id}"
                 x1, y1, x2, y2 = map(int, bbox)
-                cv2.putText(frame, label_text, (x1, max(15, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color.as_bgr(), 1)
+                # cv2.putText(frame, label_text, (x1, max(15, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color.as_bgr(), 1)
 
                 if team_id == 1:
                     team1_players.append(player_id)
@@ -236,6 +236,9 @@ class Analyze:
                             heatmap_gen_team0.update_heatmap_from_xy(team2_xy)
 
             out.write(frame)
+
+            if frame_idx == 50:
+                break
 
         # --- Koniec pętli: zapis wideo i heatmap ---
         frames.release()
