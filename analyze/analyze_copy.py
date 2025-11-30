@@ -9,12 +9,15 @@ import os
 from logger.logger import logger
 from player_tracking.embedding_assigner import EmbeddingTeamAssigner
 import torch
-from detectron2.detectron2.config import get_cfg
-from detectron2.detectron2.engine import DefaultPredictor
-from detectron2.detectron2 import model_zoo
 from pitch_keypoints_tracking.pitch_configuration import SoccerPitchConfiguration
 from pitch_keypoints_tracking.view_transformation import ViewTransformer
 from pitch_keypoints_tracking.team_heatmap import HeatmapGenerator
+from player_tracking.PossesionCalculator import PossessionCalculator
+
+
+from detectron2.config import get_cfg
+from detectron2.engine import DefaultPredictor
+from detectron2 import model_zoo
 
 CONFIG = SoccerPitchConfiguration()
 
@@ -27,10 +30,10 @@ class Analyze:
         self.confidence = self.config.get("confidence", 0.45)
         self.output_path = self.config["output_path"]
         self.tracker_config = self.config.get("tracker_config", "bytetrack.yaml")
-        self.keypoints_model_path = self.config.get["keypoints_model_path"]
+        self.keypoints_model_path = self.config['keypoint_model_path']
 
         # Config dla RetinaNet - detekcja piłki
-        self.retina_weights = self.config.get["retina_path"]
+        self.retina_weights = self.config["retina_path"]
         self.retina_conf_thresh = self.config.get("retina_conf_thresh", 0.35)
         self.retina_min_size = self.config.get("retina_min_size", 1080)
         self.retina_max_size = self.config.get("retina_max_size", 1920)
@@ -101,6 +104,23 @@ class Analyze:
         )
         return detections
 
+    def possesion_ui(self, frame, possession_calc: PossessionCalculator):
+        possession_pct = possession_calc.get_possession_percentage()
+        team1_pct = possession_pct.get(1, 0)
+        team2_pct = possession_pct.get(2, 0)
+
+        # tło dla tekstu (półprzezroczyste)
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (frame.shape[1] - 300, 10), (frame.shape[1] - 10, 100), (0, 0, 0), -1)
+        frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
+
+        # tekst posiadania
+        cv2.putText(frame, f"Team 1: {team1_pct:.1f}%", (frame.shape[1] - 290, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 136, 0), 2)
+        cv2.putText(frame, f"Team 2: {team2_pct:.1f}%", (frame.shape[1] - 290, 75),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (51, 51, 255), 2)
+        return frame
+
     def run(self, video_path: str):  # Embeddings
         self.video_path = video_path
 
@@ -128,6 +148,8 @@ class Analyze:
 
         logger.info("Starting video analyze...")
 
+        possession_calc = PossessionCalculator(distance_threshold=60.0, fps=25)
+
         for frame_idx, frame_from_results in enumerate(results):
             frame = frame_from_results.orig_img.copy()
             result = self.keypoints_model(frame, verbose=False)[0]
@@ -152,14 +174,31 @@ class Analyze:
             if frame_idx == 0 and len(players) > 2:
                 team_assigner.initialize(frame, players, track_ids)
 
+            ball_position = None
+            detections_retina = self._predict_ball_with_retina(frame, ["ball"])
+            if detections_retina is not None and len(detections_retina) > 0:
+                ball_bbox = detections_retina.xyxy[0]
+                ball_position = ((ball_bbox[0] + ball_bbox[2]) / 2, (ball_bbox[1] + ball_bbox[3]) / 2)
+
             # --- Anotacje graczy ---
             team1_players = []
             team2_players = []
+            #zwracanie bboxów i drużyn graczy do posiadania piłki
+            player_bboxes = []
+            player_teams = []
             for det_idx, bbox in enumerate(players.xyxy):
                 player_id = int(track_ids[det_idx])
                 team_id = team_assigner.assign_player(frame, bbox, player_id)
 
-                color = sv.Color.from_hex("#0088FF") if team_id == 1 else sv.Color.from_hex("#FF3333")
+                player_bboxes.append(bbox)
+                player_teams.append(team_id)
+
+                if team_id == 1:
+                    color = sv.Color.from_hex("#0088FF")
+                elif team_id == 2:
+                    color = sv.Color.from_hex("#FF3333")
+                else:
+                    color = sv.Color.from_hex("#00FF00")
 
                 detections_for_player = sv.Detections(
                     xyxy=np.array([bbox]),
@@ -178,6 +217,11 @@ class Analyze:
                 else:
                     team2_players.append(player_id)
 
+            if len(player_bboxes) > 0:
+                possession_calc.update(frame_idx, ball_position, np.array(player_bboxes), player_teams)
+
+            frame = self.possesion_ui(frame, possession_calc)
+
             # --- Bramkarze ---
             mask_goalkeeper = np.array([class_names[c] == "goalkeeper" for c in detections.class_id])
             if np.any(mask_goalkeeper):
@@ -189,17 +233,12 @@ class Analyze:
                     )
 
             # --- Piłka i sędzia ---
-            mask_triangle = np.array([class_names[c] in ["ball", "referee"] for c in detections.class_id])
-            if np.any(mask_triangle):
-                detections_triangle = detections[mask_triangle]
-                for cls in np.unique(detections_triangle.class_id):
-                    mask_cls = detections_triangle.class_id == cls
-                    frame = self.triangle_annotators[class_names[cls]].annotate(
-                        frame, detections_triangle[mask_cls]
-                    )
+            mask_referee = np.array([class_names[c] == "referee" for c in detections.class_id])
+            if np.any(mask_referee):
+                detections_referee = detections[mask_referee]
+                frame = self.triangle_annotators["referee"].annotate(frame, detections_referee)
 
             # --- Piłka z modelem Retina ---
-            detections_retina = self._predict_ball_with_retina(frame, class_names)
             if detections_retina is not None and len(detections_retina) > 0:
                 frame = self.triangle_annotator_ball_retina.annotate(frame, detections_retina)
 
@@ -235,6 +274,8 @@ class Analyze:
                             heatmap_gen_team0.update_heatmap_from_xy(team2_xy)
 
             out.write(frame)
+            # if frame_idx  == 300:
+            #     break
 
         # --- Koniec pętli: zapis wideo i heatmap ---
         frames.release()
