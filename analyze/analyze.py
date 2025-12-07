@@ -1,7 +1,11 @@
+import time
+
 import yaml
 import cv2
 import supervision as sv
 from ultralytics import YOLO
+
+from player_tracking.PassDetector import PassDetector
 from segmentation.frames import Frames
 from player_tracking.tracker import Tracker
 import numpy as np
@@ -12,8 +16,8 @@ import torch
 from pitch_keypoints_tracking.pitch_configuration import SoccerPitchConfiguration
 from pitch_keypoints_tracking.view_transformation import ViewTransformer
 from pitch_keypoints_tracking.team_heatmap import HeatmapGenerator
-from player_tracking.PossesionCalculator import PossessionCalculator
-
+from player_tracking.PossessionCalculator import PossessionCalculator
+from player_tracking.PassDetector import PassDetector
 
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
@@ -78,11 +82,28 @@ class Analyze:
 
         # self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
 
+        from collections import defaultdict
+        self.timing_stats = defaultdict(list)
+
+    def _log_timing_stats(self):
+        logger.info("Timing stats")
+        for component, times in self.timing_stats.items():
+            avg_time = np.mean(times) * 1000  # ms
+            max_time = np.max(times) * 1000
+            min_time = np.min(times) * 1000
+            logger.info(
+                f"{component:20s}: avg={avg_time:6.2f}ms, "
+                f"min={min_time:6.2f}ms, max={max_time:6.2f}ms"
+            )
     def _predict_ball_with_retina(self, frame, class_names):
         if self.predictor_retina is None:
             return None
 
+        start = time.time()
         outputs = self.predictor_retina(frame)
+        end = time.time()
+        self.timing_stats['RetinaNet'].append(end - start)
+
         instances = outputs["instances"].to("cpu")
         pred_boxes = instances.pred_boxes.tensor.numpy()
         scores = instances.scores.numpy()
@@ -120,6 +141,35 @@ class Analyze:
         cv2.putText(frame, f"Team 2: {team2_pct:.1f}%", (frame.shape[1] - 290, 75),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (51, 51, 255), 2)
         return frame
+    def passess_ui(self, frame, pass_calc: PassDetector):
+            team_stats = pass_calc.get_passes_by_team()
+
+            # Tło dla tekstu
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (10, 10), (300, 200), (0, 0, 0), -1)
+            frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
+
+            # Team 1 (niebieski)
+            cv2.putText(frame, "Team 1 Passes:", (20, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 136, 0), 2)
+            cv2.putText(frame, f"  Total: {team_stats[1]['total']}", (20, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"  Successful: {team_stats[1]['successful']}", (20, 80),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(frame, f"  Accuracy: {team_stats[1]['accuracy']:.1f}%", (20, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+
+            # Team 2 (czerwony)
+            cv2.putText(frame, "Team 2 Passes:", (20, 130),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (51, 51, 255), 2)
+            cv2.putText(frame, f"  Total: {team_stats[2]['total']}", (20, 155),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"  Successful: {team_stats[2]['successful']}", (20, 175),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(frame, f"  Accuracy: {team_stats[2]['accuracy']:.1f}%", (20, 195),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+
+            return frame
 
     def run(self, video_path: str):  # Embeddings
         self.video_path = video_path
@@ -132,7 +182,11 @@ class Analyze:
         )
 
         team_assigner = EmbeddingTeamAssigner(device='cuda', max_history=5)
+
+        start = time.time()
         results = tracker.track_video(self.video_path)
+        end = time.time()
+        self.timing_stats['YOLO players init'].append(end - start)
 
         # --- Inicjalizacja dwóch heatmap generatorów, po jednej dla drużyny ---
         heatmap_gen_team0 = HeatmapGenerator()
@@ -149,10 +203,22 @@ class Analyze:
         logger.info("Starting video analyze...")
 
         possession_calc = PossessionCalculator(distance_threshold=60.0, fps=25)
+        pass_calc = PassDetector(possession_calc,
+        min_confirm_frames=3,       # 3 detekcje wymagane
+        confirm_window_frames=10,   # w oknie 10 klatek (0.4s)
+        max_flight_frames=75)       # max 3s lotu
+
+
+
 
         for frame_idx, frame_from_results in enumerate(results):
             frame = frame_from_results.orig_img.copy()
+
+            start = time.time()
             result = self.keypoints_model(frame, verbose=False)[0]
+            end = time.time()
+            self.timing_stats['YOLO keypoints'].append(end - start)
+
             keypoints = sv.KeyPoints.from_ultralytics(result)
             detections = sv.Detections.from_ultralytics(frame_from_results)
             class_names = frame_from_results.names
@@ -172,7 +238,10 @@ class Analyze:
 
             # --- Inicjalizacja embeddings drużyn (pierwsza klatka) ---
             if frame_idx == 0 and len(players) > 2:
+                start = time.time()
                 team_assigner.initialize(frame, players, track_ids)
+                end = time.time()
+                self.timing_stats['Embeddings init'].append(end - start)
 
             ball_position = None
             detections_retina = self._predict_ball_with_retina(frame, ["ball"])
@@ -186,13 +255,19 @@ class Analyze:
             #zwracanie bboxów i drużyn graczy do posiadania piłki
             player_bboxes = []
             player_teams = []
+            #player ids do wykrywania podań
+            player_ids = []
             for det_idx, bbox in enumerate(players.xyxy):
                 player_id = int(track_ids[det_idx])
+
+                start = time.time()
                 team_id = team_assigner.assign_player(frame, bbox, player_id)
+                end = time.time()
+                self.timing_stats['Embeddings assign'].append(end - start)
 
                 player_bboxes.append(bbox)
                 player_teams.append(team_id)
-
+                player_ids.append(player_id)
                 if team_id == 1:
                     color = sv.Color.from_hex("#0088FF")
                 elif team_id == 2:
@@ -218,9 +293,10 @@ class Analyze:
                     team2_players.append(player_id)
 
             if len(player_bboxes) > 0:
-                possession_calc.update(frame_idx, ball_position, np.array(player_bboxes), player_teams)
+                pass_calc.update(frame_idx, ball_position, np.array(player_bboxes), player_teams, player_ids)
 
             frame = self.possesion_ui(frame, possession_calc)
+            frame = self.passess_ui(frame, pass_calc)
 
             # --- Bramkarze ---
             mask_goalkeeper = np.array([class_names[c] == "goalkeeper" for c in detections.class_id])
@@ -274,14 +350,16 @@ class Analyze:
                             heatmap_gen_team0.update_heatmap_from_xy(team2_xy)
 
             out.write(frame)
-            # if frame_idx  == 300:
-            #     break
+
 
         # --- Koniec pętli: zapis wideo i heatmap ---
         frames.release()
         out.release()
         cv2.destroyAllWindows()
+        self._log_timing_stats()
         logger.info(f"Result saved in: {self.output_path}_analyzed_embeddings.mp4")
         heatmap_gen_team0.save_heatmap_on_pitch(team_id=0, output_dir="outputs")
         heatmap_gen_team1.save_heatmap_on_pitch(team_id=1, output_dir="outputs")
         logger.info("Saved heatmaps for both teams.")
+        logger.info(f"Ball Possesion - Team 1: {possession_calc.get_possession_percentage().get(1, 0):.2f}%")
+        logger.info(f"Ball Possesion - Team 2: {possession_calc.get_possession_percentage().get(2, 0):.2f}%")
