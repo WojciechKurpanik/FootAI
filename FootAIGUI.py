@@ -32,7 +32,7 @@ class FootAIGUI:
         self.config_label = tk.Label(config_frame, text=self.config_file, fg="green")
         self.config_label.pack(side=tk.LEFT, padx=10)
 
-        config_btn = tk.Button(config_frame, text="Change the config",
+        config_btn = ttk.Button(config_frame, text="Change the config",
                               command=self._select_config)
         config_btn.pack(side=tk.RIGHT)
 
@@ -44,14 +44,14 @@ class FootAIGUI:
                                    fg="gray", anchor="w")
         self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        select_btn = tk.Button(file_frame, text="Choose Video",
+        select_btn = ttk.Button(file_frame, text="Choose Video",
                               command=self._select_video)
         select_btn.pack(side=tk.RIGHT, padx=5)
 
         # Przycisk analizy
         self.analyze_btn = tk.Button(self.window, text="Start the analysis",
                                      command=self._start_analysis,
-                                     state=tk.DISABLED, bg="#4CAF50",
+                                     state=tk.DISABLED, bg="#13ba37",
                                      fg="white", font=("Arial", 12))
         self.analyze_btn.pack(pady=20)
 
@@ -101,7 +101,7 @@ class FootAIGUI:
             self.selected_video_file = file_path
             self.file_label.config(text=file_path, fg="black")
             self.analyze_btn.config(state=tk.NORMAL)
-            self._log(f"Chosen vidoe: {file_path}")
+            self._log(f"Chosen video: {file_path}")
 
     def _start_analysis(self):
         if not self.selected_video_file:
