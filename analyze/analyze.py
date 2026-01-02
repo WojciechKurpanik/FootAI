@@ -5,7 +5,6 @@ import cv2
 import supervision as sv
 from ultralytics import YOLO
 
-from player_tracking.PassDetector import PassDetector
 from segmentation.frames import Frames
 from player_tracking.tracker import Tracker
 import numpy as np
@@ -54,8 +53,6 @@ class Analyze:
             "ball": sv.TriangleAnnotator(color=sv.Color.from_hex("#FFFF00")),
         }
 
-        # self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
-
         # Prediktor RetinaNet
         try:
             cfg = get_cfg()
@@ -76,10 +73,7 @@ class Analyze:
             logger.warning(f"RetinaNet initialization failed: {e}")
             self.predictor_retina = None
 
-        # dodatkowy annotator dla predykcji RetinaNet (piłka) - pomarańczowy
         self.triangle_annotator_ball_retina = sv.TriangleAnnotator(color=sv.Color.from_hex("#FFA500"))
-
-        # self.label_annotator = sv.LabelAnnotator(text_color=sv.Color.from_hex("#000000"))
 
         from collections import defaultdict
         self.timing_stats = defaultdict(list)
@@ -244,8 +238,6 @@ class Analyze:
                 ball_bbox = detections_retina.xyxy[0]
                 ball_position = ((ball_bbox[0] + ball_bbox[2]) / 2, (ball_bbox[1] + ball_bbox[3]) / 2)
 
-            # -----------------------------TEST HEURYSTYKA BRAMKARZE ---------------------------
-            # Na początku każdej klatki - czyścimy pozycje
             team_assigner.clear_frame_positions()
 
             # --- Anotacje graczy ---
@@ -263,7 +255,6 @@ class Analyze:
                 end = time.time()
                 self.timing_stats['Embeddings assign'].append(end - start)
 
-                # DODAJ TO: aktualizuj pozycje dla późniejszego przypisania bramkarzy
                 team_assigner.update_team_positions(team_id, bbox)
 
                 player_bboxes.append(bbox)
@@ -290,25 +281,22 @@ class Analyze:
                 else:
                     team2_players.append(player_id)
 
-            # --- Bramkarze - ZMODYFIKOWANA SEKCJA ---
+            # --- Bramkarze ---
             mask_goalkeeper = np.array([class_names[c] == "goalkeeper" for c in detections.class_id])
             if np.any(mask_goalkeeper):
                 detections_goalkeeper = detections[mask_goalkeeper]
 
                 for gk_idx, gk_bbox in enumerate(detections_goalkeeper.xyxy):
-                    # Przypisz bramkarza do drużyny
                     start = time.time()
                     gk_team_id = team_assigner.assign_goalkeeper(gk_bbox)
                     end = time.time()
                     self.timing_stats['Goalkeeper assign'].append(end - start)
 
-                    # Wybierz kolor na podstawie drużyny
                     if gk_team_id == 1:
                         gk_color = sv.Color.from_hex("#0088FF")
                     else:
                         gk_color = sv.Color.from_hex("#FF3333")
 
-                    # Annotacja bramkarza
                     gk_detection = sv.Detections(
                         xyxy=np.array([gk_bbox]),
                         class_id=np.array([detections_goalkeeper.class_id[gk_idx]])
@@ -316,66 +304,11 @@ class Analyze:
                     ellipse_annotator = sv.EllipseAnnotator(color=gk_color, thickness=2)
                     frame = ellipse_annotator.annotate(frame, gk_detection)
 
-            # ----------------------------- KONIEC TESTU HEURYSTYKI BRAMKARZY ---------------------------
-
-            # # --- Anotacje graczy ---
-            # team1_players = []
-            # team2_players = []
-            # #zwracanie bboxów i drużyn graczy do posiadania piłki
-            # player_bboxes = []
-            # player_teams = []
-            # #player ids do wykrywania podań
-            # player_ids = []
-            # for det_idx, bbox in enumerate(players.xyxy):
-            #     player_id = int(track_ids[det_idx])
-            #
-            #     start = time.time()
-            #     team_id = team_assigner.assign_player(frame, bbox, player_id)
-            #     end = time.time()
-            #     self.timing_stats['Embeddings assign'].append(end - start)
-            #
-            #     player_bboxes.append(bbox)
-            #     player_teams.append(team_id)
-            #     player_ids.append(player_id)
-            #     if team_id == 1:
-            #         color = sv.Color.from_hex("#0088FF")
-            #     elif team_id == 2:
-            #         color = sv.Color.from_hex("#FF3333")
-            #     else:
-            #         color = sv.Color.from_hex("#00FF00")
-            #
-            #     detections_for_player = sv.Detections(
-            #         xyxy=np.array([bbox]),
-            #         class_id=np.array([0]),
-            #         tracker_id=np.array([player_id])
-            #     )
-            #     ellipse_annotator = sv.EllipseAnnotator(color=color, thickness=2)
-            #     frame = ellipse_annotator.annotate(frame, detections_for_player)
-            #
-            #     # label_text = f"Player {player_id} | Team {team_id}"
-            #     x1, y1, x2, y2 = map(int, bbox)
-            #     # cv2.putText(frame, label_text, (x1, max(15, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color.as_bgr(), 1)
-            #
-            #     if team_id == 1:
-            #         team1_players.append(player_id)
-            #     else:
-            #         team2_players.append(player_id)
-            #
             if len(player_bboxes) > 0:
                 pass_calc.update(frame_idx, ball_position, np.array(player_bboxes), player_teams, player_ids)
 
             frame = self.possesion_ui(frame, possession_calc)
             frame = self.passess_ui(frame, pass_calc)
-            #
-            # # --- Bramkarze ---
-            # mask_goalkeeper = np.array([class_names[c] == "goalkeeper" for c in detections.class_id])
-            # if np.any(mask_goalkeeper):
-            #     detections_goalkeeper = detections[mask_goalkeeper]
-            #     for cls in np.unique(detections_goalkeeper.class_id):
-            #         mask_cls = detections_goalkeeper.class_id == cls
-            #         frame = self.ellipse_annotators[class_names[cls]].annotate(
-            #             frame, detections_goalkeeper[mask_cls]
-            #         )
 
             # --- Piłka i sędzia ---
             mask_referee = np.array([class_names[c] == "referee" for c in detections.class_id])
