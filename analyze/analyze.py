@@ -19,9 +19,9 @@ from pitch_keypoints_tracking.team_heatmap import HeatmapGenerator
 from player_tracking.PossessionCalculator import PossessionCalculator
 from player_tracking.PassDetector import PassDetector
 
-from detectron2.detectron2.config import get_cfg
-from detectron2.detectron2.engine import DefaultPredictor
-from detectron2.detectron2 import model_zoo
+from detectron2.config import get_cfg
+from detectron2.engine import DefaultPredictor
+from detectron2 import model_zoo
 
 CONFIG = SoccerPitchConfiguration()
 
@@ -30,10 +30,10 @@ class Analyze:
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.model_path = self.config["model_path"]
+        self.model_path = self.config["yolo_path"]
         self.confidence = self.config.get("confidence", 0.45)
         self.output_path = self.config["output_path"]
-        self.keypoints_model_path = self.config['keypoint_model_path']
+        self.keypoints_model_path = self.config['keypoints_path']
 
         # Config dla RetinaNet - detekcja piłki
         self.retina_weights = self.config["retina_path"]
@@ -419,6 +419,9 @@ class Analyze:
                             heatmap_gen_team0.update_heatmap_from_xy(team2_xy)
 
             out.write(frame)
+
+            if frame_idx == 100:
+                break
 
 
         # --- Koniec pętli: zapis wideo i heatmap ---
