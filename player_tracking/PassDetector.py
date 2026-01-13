@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 
-from player_tracking.PossessionCalculator import PossessionCalculator, PossessionInfo
+from player_tracking.PossessionCalculator import PossessionCalculator
 
 
 class PassType(Enum):

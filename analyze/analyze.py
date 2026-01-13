@@ -173,7 +173,7 @@ class Analyze:
             conf_threshold=self.confidence,
         )
 
-        team_assigner = EmbeddingTeamAssigner(device='cuda', max_history=5)
+        team_assigner = EmbeddingTeamAssigner(device='cuda', max_history=50)
 
         start = time.time()
         results = tracker.track_video(self.video_path)
