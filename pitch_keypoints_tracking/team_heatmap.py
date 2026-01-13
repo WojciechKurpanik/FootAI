@@ -17,18 +17,15 @@ class HeatmapGenerator:
         self.radar_w, self.radar_h = radar_size
         self.heatmap_w, self.heatmap_h = heatmap_size
 
-        # Kolory do oznaczania graczy (jak wcześniej)
         self.COLORS = ['#FF1493', '#00BFFF', '#FF6347', '#FFD700']
 
-        # 48 sektorów: 8 kolumn × 6 wierszy
         self.num_cols = num_cols
         self.num_rows = num_rows
 
-        # Heatmapa sektorowa
         self.sector_map = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
 
     # -----------------------------------------------------------
-    #  1. Stare API — zachowane
+    #  Stare API — zachowane
     # -----------------------------------------------------------
 
     def update_heatmap_from_xy(self, transformed_xy: np.ndarray):
@@ -64,7 +61,7 @@ class HeatmapGenerator:
         return pitch
 
     # -----------------------------------------------------------
-    #  2. Główna metoda aktualizująca
+    #  Główna metoda aktualizująca
     # -----------------------------------------------------------
 
     def update_heatmap(self, detections: sv.Detections, keypoints: sv.KeyPoints):
@@ -96,7 +93,7 @@ class HeatmapGenerator:
         return self.sector_map
 
     # -----------------------------------------------------------
-    #  3. Render radaru (sektory + gracze)
+    #  Render radaru (sektory + gracze)
     # -----------------------------------------------------------
 
     def render_heatmap(self, detections: sv.Detections, keypoints: sv.KeyPoints, color_lookup: np.ndarray):
@@ -106,7 +103,7 @@ class HeatmapGenerator:
 
         # Normalizacja w sektorach
         max_val = self.sector_map.max() if self.sector_map.max() > 0 else 1
-        norm = (self.sector_map / max_val * 180).astype(np.uint8)   # 🔽 słabsze kolory (180 zamiast 255)
+        norm = (self.sector_map / max_val * 180).astype(np.uint8)
 
         norm_color = cv2.applyColorMap(norm, cv2.COLORMAP_JET)
 
@@ -123,7 +120,6 @@ class HeatmapGenerator:
 
                 cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
 
-                # 🔽 słabsze blendowanie (0.20 zamiast 0.30)
                 radar = cv2.addWeighted(radar, 0.80, overlay, 0.20, 0)
 
         # --------------------------------------------------
@@ -150,7 +146,7 @@ class HeatmapGenerator:
         return radar
 
     # -----------------------------------------------------------
-    #  4. Zapis heatmapy na pełnym boisku
+    #  Zapis heatmapy na pełnym boisku
     # -----------------------------------------------------------
 
     def save_heatmap_on_pitch(self, team_id: int, output_dir: str = "outputs"):
@@ -169,15 +165,13 @@ class HeatmapGenerator:
             cv2.imwrite(output_path, pitch_img)
             return
 
-        # Normalizacja osłabiona
         max_val = self.sector_map.max()
-        norm = (self.sector_map / max_val * 180).astype(np.uint8)  # 🔽 słabsze kolory
+        norm = (self.sector_map / max_val * 180).astype(np.uint8)
 
         heatmap_resized = cv2.resize(norm, (pitch_w, pitch_h), interpolation=cv2.INTER_NEAREST)
         heatmap_resized = cv2.GaussianBlur(heatmap_resized, (21, 21), 0)
         heatmap_color = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
 
-        # 🔽 Alpha zmniejszona (maks 0.5 zamiast 0.8)
         alpha = heatmap_resized.astype(float) / 255.0
         alpha = np.clip(alpha * 1.2, 0, 0.5)
         alpha = cv2.merge([alpha, alpha, alpha])

@@ -211,5 +211,9 @@ __marimo__/
 #exclude folders
 output/.
 outputs/
+temp/
 logs/
 .idea/
+*.iml
+*.ipr
+*.iws
