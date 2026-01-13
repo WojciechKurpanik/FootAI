@@ -1,4 +1,5 @@
 from analyze.analyze import Analyze
+from FootAIGUI import FootAIGUI
 
 def main():
     analyze = Analyze("config.yaml")
