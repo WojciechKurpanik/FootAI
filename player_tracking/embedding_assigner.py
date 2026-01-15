@@ -102,7 +102,7 @@ class EmbeddingTeamAssigner:
         votes = list(self.player_history[player_id])
         final_team = max(set(votes), key=votes.count)
 
-        # aktualizacja centroidu drużyny (prosty running average)
+        # aktualizacja centroidu drużyny
         alpha = 0.05
         self.team_centroids[final_team] = (1 - alpha) * self.team_centroids[final_team] + alpha * emb
 

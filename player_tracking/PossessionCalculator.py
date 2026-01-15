@@ -89,7 +89,6 @@ class PossessionCalculator:
 
     def get_possession_percentage(self) -> Dict[int, float]:
         """Zwraca procent posiadania dla każdej drużyny."""
-        # UPROSZCZONE: bezpośrednie obliczenie
         total_frames = sum(self.frames_count.values())
         if total_frames == 0:
             return {1: 0.0, 2: 0.0}

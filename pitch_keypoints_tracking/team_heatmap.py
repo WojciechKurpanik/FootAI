@@ -24,10 +24,6 @@ class HeatmapGenerator:
 
         self.sector_map = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
 
-    # -----------------------------------------------------------
-    #  Stare API — zachowane
-    # -----------------------------------------------------------
-
     def update_heatmap_from_xy(self, transformed_xy: np.ndarray):
         if transformed_xy.size == 0:
             return self.sector_map
@@ -60,10 +56,6 @@ class HeatmapGenerator:
 
         return pitch
 
-    # -----------------------------------------------------------
-    #  Główna metoda aktualizująca
-    # -----------------------------------------------------------
-
     def update_heatmap(self, detections: sv.Detections, keypoints: sv.KeyPoints):
         mask = (keypoints.xy[0][:, 0] > 1) & (keypoints.xy[0][:, 1] > 1)
 
@@ -92,10 +84,6 @@ class HeatmapGenerator:
 
         return self.sector_map
 
-    # -----------------------------------------------------------
-    #  Render radaru (sektory + gracze)
-    # -----------------------------------------------------------
-
     def render_heatmap(self, detections: sv.Detections, keypoints: sv.KeyPoints, color_lookup: np.ndarray):
         radar = self.render_pitch()
         cell_w = self.radar_w // self.num_cols
@@ -122,9 +110,6 @@ class HeatmapGenerator:
 
                 radar = cv2.addWeighted(radar, 0.80, overlay, 0.20, 0)
 
-        # --------------------------------------------------
-        #  Rysowanie pozycji graczy (bez zmian)
-        # --------------------------------------------------
         mask = (keypoints.xy[0][:, 0] > 1) & (keypoints.xy[0][:, 1] > 1)
 
         if mask.sum() >= 3:
@@ -144,10 +129,6 @@ class HeatmapGenerator:
                 cv2.circle(radar, pt, 6, color, -1)
 
         return radar
-
-    # -----------------------------------------------------------
-    #  Zapis heatmapy na pełnym boisku
-    # -----------------------------------------------------------
 
     def save_heatmap_on_pitch(self, team_id: int, output_dir: str = "outputs"):
         script_dir = os.path.dirname(os.path.abspath(__file__))

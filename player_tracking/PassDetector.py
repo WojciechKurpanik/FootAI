@@ -32,7 +32,7 @@ class PassEvent:
 
 class PassDetector:
     """
-    Robust pass detector:
+    Pass detector:
     - Toleruje brak detekcji piłki podczas potwierdzania
     - Używa "okna czasowego" zamiast ciągłych klatek
     """
@@ -89,19 +89,17 @@ class PassDetector:
         team_id = possession.team_id
         pass_event = None
 
-        # === MASZYNA STANÓW ===
-
         if self.state == PassState.NO_POSSESSION:
             if player_id is not None:
                 self._start_confirmation(player_id, team_id, frame_idx)
 
         elif self.state == PassState. PLAYER_HAS_BALL:
             if player_id is None:
-                # Piłka opuściła gracza → start lotu
+                # Piłka opuściła gracza = start lotu
                 self._start_flight(frame_idx)
 
             elif player_id != self.current_player:
-                # Bezpośrednie przejęcie → lot + potwierdzenie
+                # Bezpośrednie przejęcie = lot + potwierdzenie
                 self._start_flight(frame_idx)
                 self._start_confirmation(player_id, team_id, frame_idx)
 
@@ -109,7 +107,7 @@ class PassDetector:
             flight_duration = frame_idx - self.flight_start_frame
 
             if player_id is not None:
-                # Ktoś blisko piłki → zacznij potwierdzać
+                # Ktoś blisko piłki
                 self._start_confirmation(player_id, team_id, frame_idx)
 
             elif flight_duration > self.max_flight_frames:
@@ -119,36 +117,27 @@ class PassDetector:
             window_duration = frame_idx - self. candidate_start_frame
 
             if player_id == self.candidate_player:
-                # Ten sam gracz z piłką - dodaj do historii
                 self. candidate_detections. append(frame_idx)
 
                 detections = self._count_detections_in_window(frame_idx)
                 if detections >= self.min_confirm_frames:
-                    # POTWIERDZONY!
                     pass_event = self._confirm_pass(frame_idx)
 
             elif player_id is not None and player_id != self.candidate_player:
-                # Inny gracz - może to on jest odbiorcą?
-                # Sprawdź czy poprzedni kandydat miał wystarczająco
                 detections = self._count_detections_in_window(frame_idx)
                 if detections >= self. min_confirm_frames:
                     pass_event = self._confirm_pass(frame_idx)
-                    # I zacznij potwierdzać nowego
                     self._start_flight(frame_idx)
                     self._start_confirmation(player_id, team_id, frame_idx)
                 else:
-                    # Poprzedni nie miał wystarczająco - zamień kandydata
                     self._start_confirmation(player_id, team_id, frame_idx)
 
             elif player_id is None:
-                # Piłka zniknęła - ale NIE resetuj!
-                # Sprawdź czy nie przekroczono okna
                 if window_duration > self.confirm_window_frames:
                     detections = self._count_detections_in_window(frame_idx)
                     if detections >= self.min_confirm_frames:
                         pass_event = self._confirm_pass(frame_idx)
                     else:
-                        # Wróć do lotu
                         self. state = PassState. BALL_IN_FLIGHT
 
         return pass_event

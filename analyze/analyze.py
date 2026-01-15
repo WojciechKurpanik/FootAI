@@ -53,7 +53,6 @@ class Analyze:
             "ball": sv.TriangleAnnotator(color=sv.Color.from_hex("#FFFF00")),
         }
 
-        # Prediktor RetinaNet
         try:
             cfg = get_cfg()
             cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/retinanet_R_50_FPN_3x.yaml"))
@@ -123,26 +122,23 @@ class Analyze:
         team1_pct = possession_pct.get(1, 0)
         team2_pct = possession_pct.get(2, 0)
 
-        # tło dla tekstu (półprzezroczyste)
         overlay = frame.copy()
         cv2.rectangle(overlay, (frame.shape[1] - 300, 10), (frame.shape[1] - 10, 100), (0, 0, 0), -1)
         frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
 
-        # tekst posiadania
         cv2.putText(frame, f"Team 1: {team1_pct:.1f}%", (frame.shape[1] - 290, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 136, 0), 2)
         cv2.putText(frame, f"Team 2: {team2_pct:.1f}%", (frame.shape[1] - 290, 75),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (51, 51, 255), 2)
         return frame
+
     def passess_ui(self, frame, pass_calc: PassDetector):
             team_stats = pass_calc.get_passes_by_team()
 
-            # Tło dla tekstu
             overlay = frame.copy()
             cv2.rectangle(overlay, (10, 10), (300, 200), (0, 0, 0), -1)
             frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
 
-            # Team 1 (niebieski)
             cv2.putText(frame, "Team 1 Passes:", (20, 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 136, 0), 2)
             cv2.putText(frame, f"  Total: {team_stats[1]['total']}", (20, 60),
